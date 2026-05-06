@@ -207,7 +207,7 @@ pnpm run typecheck    # TypeScript type checking
 
 ## MCP Tools
 
-The server provides 13 tools for comprehensive Microsoft To Do management:
+The server provides 16 tools for comprehensive Microsoft To Do management:
 
 ### Authentication
 
@@ -216,6 +216,7 @@ The server provides 13 tools for comprehensive Microsoft To Do management:
 ### Task Lists (Top-level Containers)
 
 - **`get-task-lists`** - Retrieve all task lists with metadata (default, shared, etc.)
+- **`get-task-lists-organized`** - Render task lists as a grouped tree view. `groupBy: "category"` (default) buckets lists using **hardcoded regex patterns on display names** (emoji prefixes like `🛒`/`🏡`/`👪`, plus literal matches like `Work`, `SBIR`, `Rangeley`) — these patterns reflect the upstream author's naming conventions and will mostly fall through to "Other Lists" for unrelated accounts. `groupBy: "shared"` splits shared vs. personal lists (account-agnostic). Optional `includeIds` appends an ID reference table.
 - **`create-task-list`** - Create a new task list
 - **`update-task-list`** - Rename an existing task list
 - **`delete-task-list`** - Delete a task list and all its contents
@@ -228,6 +229,7 @@ The server provides 13 tools for comprehensive Microsoft To Do management:
   - Title, description, due date, start date, importance, reminders, status, categories
 - **`update-task`** - Update any task properties
 - **`delete-task`** - Delete a task and all its checklist items
+- **`archive-completed-tasks`** - Move completed tasks older than `olderThanDays` (default 90) from `sourceListId` to `targetListId` by recreating them in the target list and deleting the originals. The target archive list must already exist. Supports `dryRun` to preview which tasks would be moved without making changes.
 
 ### Checklist Items (Subtasks)
 
@@ -235,6 +237,10 @@ The server provides 13 tools for comprehensive Microsoft To Do management:
 - **`create-checklist-item`** - Add a new subtask to a task
 - **`update-checklist-item`** - Update subtask text or completion status
 - **`delete-checklist-item`** - Remove a specific subtask
+
+### Developer Tools
+
+- **`test-graph-api-exploration`** - Diagnostic tool for probing the Microsoft Graph `/me/todo` API surface. Runs `$select=*`, tries various `$expand` values, dumps response headers, queries the extensions endpoint, and probes for undocumented endpoints (`/folders`, `/groups`, `/listGroups`, etc.). Intended for development/debugging only — not useful for normal task management.
 
 ## Architecture
 
