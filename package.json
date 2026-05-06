@@ -20,6 +20,7 @@
     "setup": "node dist/setup.js",
     "dev": "pnpm run build && node dist/cli.js",
     "create-config": "node dist/create-mcp-config.js",
+    "create-manifest": "node dist/create-manifest.js",
     "format": "prettier --write \"src/**/*.{ts,js,json}\" \"*.{json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\" \"*.{json,md}\"",
     "lint": "pnpm run format:check",
@@ -60,6 +61,7 @@
     "microsoft-todo-mcp-server": "./dist/cli.js",
     "mstodo": "./dist/cli.js",
     "mstodo-config": "./dist/create-mcp-config.js",
+    "mstodo-manifest": "./dist/create-manifest.js",
     "mstodo-setup": "./dist/setup.js"
   },
   "files": [
