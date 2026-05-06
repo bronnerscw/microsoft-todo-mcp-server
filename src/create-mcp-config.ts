@@ -12,8 +12,14 @@ const __dirname = path.dirname(__filename)
 const tokenPath = process.argv[2] || path.join(process.cwd(), "tokens.json")
 const outputPath = process.argv[3] || path.join(process.cwd(), "mcp.json")
 
+// cli.js sits next to this file in dist/ — point at it so the generated
+// mcp.json runs this fork's build, not whatever `npx microsoft-todo-mcp-server`
+// resolves to from the public registry.
+const cliPath = path.join(__dirname, "cli.js")
+
 console.log(`Reading tokens from: ${tokenPath}`)
 console.log(`Writing config to: ${outputPath}`)
+console.log(`MCP server command: node ${cliPath}`)
 
 try {
   // Read the tokens
@@ -23,8 +29,8 @@ try {
   const mcpConfig = {
     mcpServers: {
       microsoftTodo: {
-        command: "npx",
-        args: ["--yes", "microsoft-todo-mcp-server"],
+        command: "node",
+        args: [cliPath],
         env: {
           MS_TODO_ACCESS_TOKEN: tokenData.accessToken,
           MS_TODO_REFRESH_TOKEN: tokenData.refreshToken,
