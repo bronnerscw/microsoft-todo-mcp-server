@@ -39,3 +39,5 @@ bundle/
 *.sw?
 .DS_Store
 
+# Claude Code local working area (worktrees, session state, local settings)
+.claude/
