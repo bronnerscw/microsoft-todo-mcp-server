@@ -1,9 +1,8 @@
 # Microsoft To Do MCP
 
-[![CI](https://github.com/jordanburke/microsoft-todo-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanburke/microsoft-todo-mcp-server/actions/workflows/ci.yml)
-[![npm version](https://badge.fury.io/js/microsoft-todo-mcp-server.svg)](https://www.npmjs.com/package/microsoft-todo-mcp-server)
-
 A Model Context Protocol (MCP) server that enables AI assistants like Claude and Cursor to interact with Microsoft To Do via the Microsoft Graph API. This service provides comprehensive task management capabilities through a secure OAuth 2.0 authentication flow.
+
+This is the [bronnerscw](https://github.com/bronnerscw/microsoft-todo-mcp-server) fork of [jordanburke/microsoft-todo-mcp-server](https://github.com/jordanburke/microsoft-todo-mcp-server). It is not published to npm — install by cloning this repo. Anything you generate (such as `mcp.json`) points at this fork's local build, not the upstream npm package.
 
 ## Features
 
@@ -24,37 +23,25 @@ A Model Context Protocol (MCP) server that enables AI assistants like Claude and
 
 ## Installation
 
-### Option 1: Global Installation (Recommended)
+Clone this fork and build it locally:
 
 ```bash
-# Install globally using npm
-npm install -g microsoft-todo-mcp-server
-
-# Or using pnpm
-pnpm install -g microsoft-todo-mcp-server
-
-# Or run directly with npx (no installation)
-npx microsoft-todo-mcp-server
-```
-
-The package provides three command aliases:
-
-- `microsoft-todo-mcp-server` - Full package name
-- `mstodo` - Short alias for the MCP server
-- `mstodo-config` - Configuration helper tool
-
-### Option 2: Clone and Run Locally
-
-```bash
-git clone https://github.com/jordanburke/microsoft-todo-mcp-server.git
+git clone https://github.com/bronnerscw/microsoft-todo-mcp-server.git
 cd microsoft-todo-mcp-server
 pnpm install
 pnpm run build
 ```
 
-### Option 3: Desktop Extension (.mcpb) for Claude Desktop
+The build produces four executables under `dist/`:
 
-Newer Claude Desktop versions manage local MCP servers through the [`.mcpb` extension format](https://github.com/modelcontextprotocol/mcpb) (Settings → Extensions) rather than the legacy `claude_desktop_config.json` `mcpServers` block. If your Claude Desktop ignores `mcpServers` entries you add to that file, you'll need to package this server as a `.mcpb` extension. See [Building a Desktop Extension (.mcpb)](#building-a-desktop-extension-mcpb) below for the full packaging and install flow.
+- `dist/cli.js` — MCP server (run with `node dist/cli.js` or `pnpm run cli`)
+- `dist/auth-server.js` — OAuth flow (run with `pnpm run auth`)
+- `dist/create-mcp-config.js` — `mcp.json` generator (run with `pnpm run create-config`)
+- `dist/create-manifest.js` — `manifest.json` generator for `.mcpb` packaging (run with `pnpm run create-manifest`)
+
+> Installing globally via `npm install -g microsoft-todo-mcp-server` would fetch the upstream npm package, not this fork. Don't do that.
+
+Newer Claude Desktop versions manage local MCP servers through the [`.mcpb` extension format](https://github.com/modelcontextprotocol/mcpb) (Settings → Extensions) rather than the legacy `claude_desktop_config.json` `mcpServers` block. If your Claude Desktop ignores `mcpServers` entries you add to that file, package this server as a `.mcpb` extension instead — see [Building a Desktop Extension (.mcpb)](#building-a-desktop-extension-mcpb) below.
 
 ## Azure App Registration
 
@@ -145,29 +132,19 @@ If you change the port, update the **Redirect URI** in your Azure App Registrati
 #### Step 1: Authenticate with Microsoft
 
 ```bash
-# If installed globally
-git clone https://github.com/jordanburke/microsoft-todo-mcp-server.git
-cd microsoft-todo-mcp-server
-pnpm install
-pnpm run auth
-
-# Or if running locally
 pnpm run auth
 ```
 
-This opens a browser window for Microsoft authentication and creates a `tokens.json` file.
+This opens a browser window for Microsoft authentication and creates a `tokens.json` file in the project root.
 
 #### Step 2: Create MCP Configuration
 
 ```bash
 # Generate MCP configuration file
 pnpm run create-config
-
-# Or use the global helper (if installed globally)
-mstodo-config
 ```
 
-This creates an `mcp.json` file with your authentication tokens.
+This creates an `mcp.json` in the project root with your authentication tokens. The generated config invokes the MCP server as `node <absolute path to this clone's dist/cli.js>`, so your AI assistant runs this fork's build directly. The path is derived from the location of `create-mcp-config.js` itself, so moving or rebuilding the clone in place keeps the path correct; if you relocate the clone after generating, regenerate `mcp.json`.
 
 #### Step 3: Configure Your AI Assistant
 
@@ -183,8 +160,8 @@ Add to your configuration file:
 {
   "mcpServers": {
     "microsoftTodo": {
-      "command": "npx",
-      "args": ["--yes", "microsoft-todo-mcp-server"],
+      "command": "node",
+      "args": ["/absolute/path/to/microsoft-todo-mcp-server/dist/cli.js"],
       "env": {
         "MS_TODO_ACCESS_TOKEN": "your_access_token",
         "MS_TODO_REFRESH_TOKEN": "your_refresh_token"
@@ -193,6 +170,8 @@ Add to your configuration file:
   }
 }
 ```
+
+Replace `/absolute/path/to/microsoft-todo-mcp-server` with the absolute path to your clone of this fork. Running `pnpm run create-config` produces an `mcp.json` with this exact path already filled in.
 
 **For Cursor:**
 
@@ -211,7 +190,6 @@ pnpm run dev          # Build and run CLI in one command
 # Running the Server
 pnpm start            # Run MCP server directly
 pnpm run cli          # Run MCP server via CLI wrapper
-npx microsoft-todo-mcp-server  # Run globally installed version
 
 # Authentication & Configuration
 pnpm run auth            # Start OAuth authentication server
@@ -358,7 +336,8 @@ The server provides 16 tools for comprehensive Microsoft To Do management:
 - **MCP Server** (`src/todo-index.ts`) - Core server implementing the MCP protocol
 - **CLI Wrapper** (`src/cli.ts`) - Executable entry point with token management
 - **Auth Server** (`src/auth-server.ts`) - Express server for OAuth 2.0 flow
-- **Config Generator** (`src/create-mcp-config.ts`) - Helper to create MCP configurations
+- **Config Generator** (`src/create-mcp-config.ts`) - Helper to create `mcp.json` for the legacy `mcpServers` config block
+- **Manifest Generator** (`src/create-manifest.ts`) - Helper to create `manifest.json` for `.mcpb` extension packaging
 
 ### Technical Details
 
@@ -433,7 +412,7 @@ date -d @$(($(cat tokens.json | jq -r '.expiresAt') / 1000))
 
 ```bash
 # The server logs to stderr for debugging
-mstodo 2> debug.log
+node dist/cli.js 2> debug.log
 ```
 
 ## Contributing
@@ -451,11 +430,10 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 ## Acknowledgments
 
-- Fork of [@jhirono/todomcp](https://github.com/jhirono/todomcp)
+- Fork of [jordanburke/microsoft-todo-mcp-server](https://github.com/jordanburke/microsoft-todo-mcp-server), itself a fork of [@jhirono/todomcp](https://github.com/jhirono/todomcp)
 - Built on the [Model Context Protocol SDK](https://github.com/modelcontextprotocol/sdk)
 - Uses [Microsoft Graph API](https://developer.microsoft.com/en-us/graph)
 
 ## Support
 
-- [GitHub Issues](https://github.com/jordanburke/microsoft-todo-mcp-server/issues)
-- [npm Package](https://www.npmjs.com/package/microsoft-todo-mcp-server)
+- [GitHub Issues](https://github.com/bronnerscw/microsoft-todo-mcp-server/issues)
