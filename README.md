@@ -6,7 +6,7 @@ This is the [bronnerscw](https://github.com/bronnerscw/microsoft-todo-mcp-server
 
 ## Features
 
-- **16 MCP Tools**: Complete task management functionality including lists, tasks, checklist items, organization features, and archival
+- **15 MCP Tools**: Complete task management functionality including lists, tasks, checklist items, and organization features
 - **Seamless Authentication**: Automatic token refresh with zero manual intervention
 - **OAuth 2.0 Authentication**: Secure authentication with automatic token refresh
 - **Microsoft Graph API Integration**: Direct integration with Microsoft's official API
@@ -32,16 +32,13 @@ pnpm install
 pnpm run build
 ```
 
-The build produces four executables under `dist/`:
+The build produces three executables under `dist/`:
 
 - `dist/cli.js` — MCP server (run with `node dist/cli.js` or `pnpm run cli`)
 - `dist/auth-server.js` — OAuth flow (run with `pnpm run auth`)
 - `dist/create-mcp-config.js` — `mcp.json` generator (run with `pnpm run create-config`)
-- `dist/create-manifest.js` — `manifest.json` generator for `.mcpb` packaging (run with `pnpm run create-manifest`)
 
 > Installing globally via `npm install -g microsoft-todo-mcp-server` would fetch the upstream npm package, not this fork. Don't do that.
-
-Newer Claude Desktop versions manage local MCP servers through the [`.mcpb` extension format](https://github.com/modelcontextprotocol/mcpb) (Settings → Extensions) rather than the legacy `claude_desktop_config.json` `mcpServers` block. If your Claude Desktop ignores `mcpServers` entries you add to that file, package this server as a `.mcpb` extension instead — see [Building a Desktop Extension (.mcpb)](#building-a-desktop-extension-mcpb) below.
 
 ## Azure App Registration
 
@@ -99,31 +96,16 @@ TENANT_ID=00000000-0000-0000-0000-000000000000
 
 ### Token Storage
 
-The server stores authentication tokens with automatic refresh 5 minutes before expiration. The default location is platform-aware:
-
-- **Windows**: `%APPDATA%\microsoft-todo-mcp\tokens.json`
-- **macOS/Linux**: `~/.config/microsoft-todo-mcp/tokens.json`
-
-You can override the location or provide tokens directly via environment variables:
+The server stores authentication tokens in `tokens.json` with automatic refresh 5 minutes before expiration. You can override the token file location:
 
 ```bash
-# Override the token file location (used by the CLI as a fallback source)
+# Using environment variable
 export MSTODO_TOKEN_FILE=/path/to/custom/tokens.json
 
-# Provide tokens directly (used as the initial source on startup)
+# Or pass tokens directly
 export MS_TODO_ACCESS_TOKEN=your_access_token
 export MS_TODO_REFRESH_TOKEN=your_refresh_token
 ```
-
-### Auth Server Port
-
-The OAuth callback server (`pnpm run auth`) listens on port 3000 by default. Override with `AUTH_PORT` if 3000 is taken:
-
-```bash
-AUTH_PORT=3001 pnpm run auth
-```
-
-If you change the port, update the **Redirect URI** in your Azure App Registration to match (e.g. `http://localhost:3001/callback`).
 
 ## Usage
 
@@ -192,9 +174,8 @@ pnpm start            # Run MCP server directly
 pnpm run cli          # Run MCP server via CLI wrapper
 
 # Authentication & Configuration
-pnpm run auth            # Start OAuth authentication server
-pnpm run create-config   # Generate mcp.json from tokens.json
-pnpm run create-manifest # Generate manifest.json for .mcpb packaging
+pnpm run auth         # Start OAuth authentication server
+pnpm run create-config # Generate mcp.json from tokens.json
 
 # Code Quality
 pnpm run format       # Format code with Prettier
@@ -203,98 +184,9 @@ pnpm run lint         # Run linting checks
 pnpm run typecheck    # TypeScript type checking
 ```
 
-## Building a Desktop Extension (.mcpb)
-
-Modern Claude Desktop versions install local MCP servers as **Desktop Extensions** (`.mcpb` files) via Settings → Extensions, rather than honoring `mcpServers` entries in `claude_desktop_config.json`. If your Claude Desktop falls in that bucket, package this server as a `.mcpb` extension using the official [Anthropic MCPB tooling](https://github.com/modelcontextprotocol/mcpb).
-
-### Prerequisites
-
-Install the packaging CLI globally (one time):
-
-```bash
-npm install -g @anthropic-ai/mcpb
-```
-
-### Step 1: Generate the manifest
-
-`manifest.json` describes the extension and the values Claude Desktop should prompt for at install time. Generate one from `package.json`:
-
-```bash
-pnpm run build           # Refresh dist/
-pnpm run create-manifest # Writes manifest.json to project root
-```
-
-The generated manifest declares five `user_config` fields the user fills in via the install dialog:
-
-| Field | Description | Sensitive |
-|---|---|---|
-| `client_id` | Azure App Registration Application (client) ID | No |
-| `client_secret` | Azure App Registration secret value | Yes |
-| `tenant_id` | Tenant GUID, or `organizations` / `common` / `consumers` | No |
-| `access_token` | Initial access token from `tokens.json` | Yes |
-| `refresh_token` | Initial refresh token from `tokens.json` | Yes |
-
-Sensitive fields are masked in the install dialog and stored encrypted by Claude Desktop. If you place an `icon.png` (recommended: 128×128 PNG) at the project root before running `create-manifest`, it will be referenced automatically.
-
-### Step 2: Stage a production-only bundle
-
-Because `tsup` does not bundle dependencies into `dist/cli.js`, the `.mcpb` archive must include `node_modules`. To avoid shipping ~200 MB of devDependencies, stage a clean directory with production deps only.
-
-**Windows (cmd):**
-
-```bash
-mkdir bundle
-xcopy /E /I dist bundle\dist
-copy package.json bundle\
-copy manifest.json bundle\
-cd bundle && npm install --omit=dev --no-package-lock && cd ..
-```
-
-**macOS/Linux:**
-
-```bash
-mkdir -p bundle
-cp -r dist bundle/dist
-cp package.json manifest.json bundle/
-(cd bundle && npm install --omit=dev --no-package-lock)
-```
-
-### Step 3: Pack
-
-```bash
-mcpb pack bundle microsoft-todo-1.1.3.mcpb
-```
-
-This produces `microsoft-todo-1.1.3.mcpb` (a zip archive with `manifest.json`, `dist/`, `node_modules/`, and `package.json`) at the project root.
-
-### Step 4: Install in Claude Desktop
-
-1. Double-click the `.mcpb` file. Claude Desktop opens an install dialog with the extension name, description, and a form for the five `user_config` fields.
-2. Fill in your Azure App Registration credentials and the access/refresh tokens from your `tokens.json` (run `pnpm run auth` first if you don't have one).
-3. Click **Install**. The extension appears under **Settings → Extensions** and the MCP server starts automatically.
-
-### Token refresh and reauthentication
-
-The server reads the initial tokens from environment variables (set by Claude Desktop from your `user_config` values), then writes refreshed tokens to the platform-specific location described under [Token Storage](#token-storage). If the access token expires and the refresh token can no longer renew it (typically after extended inactivity, password change, or MFA event), the server logs a `REAUTHENTICATION REQUIRED` message. To recover:
-
-1. Run `pnpm run auth` in a clone of this repo to generate a fresh `tokens.json`.
-2. Open Claude Desktop → **Settings → Extensions → Microsoft To Do → Configure**.
-3. Update the **Initial Access Token** and **Initial Refresh Token** fields with the new values.
-
-### Build artifacts
-
-The bundling flow produces files that should not be committed. The project `.gitignore` already excludes them:
-
-```gitignore
-bundle/
-*.mcpb
-mcp.json
-tokens.json
-```
-
 ## MCP Tools
 
-The server provides 16 tools for comprehensive Microsoft To Do management:
+The server provides 13 tools for comprehensive Microsoft To Do management:
 
 ### Authentication
 
@@ -336,8 +228,7 @@ The server provides 16 tools for comprehensive Microsoft To Do management:
 - **MCP Server** (`src/todo-index.ts`) - Core server implementing the MCP protocol
 - **CLI Wrapper** (`src/cli.ts`) - Executable entry point with token management
 - **Auth Server** (`src/auth-server.ts`) - Express server for OAuth 2.0 flow
-- **Config Generator** (`src/create-mcp-config.ts`) - Helper to create `mcp.json` for the legacy `mcpServers` config block
-- **Manifest Generator** (`src/create-manifest.ts`) - Helper to create `manifest.json` for `.mcpb` extension packaging
+- **Config Generator** (`src/create-mcp-config.ts`) - Helper to create `mcp.json` for the `mcpServers` config block
 
 ### Technical Details
 
@@ -368,9 +259,8 @@ The server provides 16 tools for comprehensive Microsoft To Do management:
 **Token acquisition failures**
 
 - Verify `CLIENT_ID`, `CLIENT_SECRET`, and `TENANT_ID` in your `.env` file
-- Ensure redirect URI matches exactly: `http://localhost:3000/callback` (or `http://localhost:<AUTH_PORT>/callback` if you customized the port)
+- Ensure redirect URI matches exactly: `http://localhost:3000/callback`
 - Check Azure App permissions are granted with admin consent
-- If port 3000 is in use, set `AUTH_PORT=<other port>` and update the Redirect URI in Azure to match
 
 **Permission issues**
 
