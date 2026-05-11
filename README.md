@@ -269,6 +269,24 @@ The server provides 13 tools for comprehensive Microsoft To Do management:
 
 ## Troubleshooting
 
+### Claude Desktop Configuration
+
+**Finding the right `claude_desktop_config.json`**
+
+The path differs by install type. Always use **Settings → Developer → Edit Config** in Claude Desktop, which opens the correct file in Windows Explorer regardless of how Claude Desktop was installed:
+
+- **Microsoft Store / MSIX install**: redirected to an AppContainer sandbox under `C:\Users\<user>\AppData\Local\Packages\Claude_<hash>\LocalCache\Roaming\Claude\claude_desktop_config.json`. Editing `%APPDATA%\Claude\claude_desktop_config.json` directly may appear to work but writes can be invisible to the sandboxed Claude Desktop process.
+- **Classic Win32 installer**: `%APPDATA%\Claude\claude_desktop_config.json` (i.e. `C:\Users\<user>\AppData\Roaming\Claude\claude_desktop_config.json`).
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`.
+
+**`mcpServers` entries disappearing after restart**
+
+Claude Desktop strips unrecognized keys from `claude_desktop_config.json` on rewrite unless **Developer mode** is enabled. If your `microsoftTodo` entry vanishes between launches:
+
+1. Open Claude Desktop → **Settings → Developer**
+2. Confirm Developer mode is toggled on (this is what surfaces the **Edit Config** button in the first place — if you can see it, you're set)
+3. Re-add the `mcpServers` block and restart Claude Desktop fully (system tray → Quit, not just close window)
+
 ### Authentication Issues
 
 **Token acquisition failures**

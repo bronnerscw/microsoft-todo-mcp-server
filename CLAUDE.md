@@ -65,4 +65,6 @@ The server communicates with Microsoft Graph API v1.0:
 - The auth server runs on port 3000 by default (override with `AUTH_PORT`)
 - Tokens are automatically refreshed using the refresh token when needed; refreshed tokens persist to the platform-specific Token Manager location
 - Personal Microsoft accounts have limited API access compared to work/school accounts (MailboxNotEnabledForRESTAPI)
-- For Claude Desktop, configure via Settings → Developer → Edit Config (which opens the canonical `claude_desktop_config.json` location); add an entry under `mcpServers` pointing at `node` + the absolute path to `dist/cli.js`
+- For Claude Desktop, configure via **Settings → Developer → Edit Config** (which opens the canonical `claude_desktop_config.json` location); add an entry under `mcpServers` pointing at `node` + the absolute path to `dist/cli.js`
+- The canonical config path differs by install type. Microsoft Store / MSIX-packaged Claude Desktop redirects `%APPDATA%\Claude\` to its AppContainer sandbox (typically `C:\Users\<user>\AppData\Local\Packages\Claude_<hash>\LocalCache\Roaming\Claude\claude_desktop_config.json`), while the classic Win32 installer uses `%APPDATA%\Claude\claude_desktop_config.json` directly. Always rely on Settings → Developer → Edit Config to open the correct file rather than guessing the path.
+- Claude Desktop **strips unrecognized keys** from `claude_desktop_config.json` on rewrite unless Developer mode is enabled. If your `mcpServers` entries vanish on next launch, confirm Developer mode is toggled on under Settings → Developer.
