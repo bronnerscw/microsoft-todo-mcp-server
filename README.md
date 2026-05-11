@@ -6,7 +6,7 @@ This is the [bronnerscw](https://github.com/bronnerscw/microsoft-todo-mcp-server
 
 ## Features
 
-- **15 MCP Tools**: Complete task management functionality including lists, tasks, checklist items, and organization features
+- **16 MCP Tools**: Complete task management functionality including lists, tasks, checklist items, organization features, and archival
 - **Seamless Authentication**: Automatic token refresh with zero manual intervention
 - **OAuth 2.0 Authentication**: Secure authentication with automatic token refresh
 - **Microsoft Graph API Integration**: Direct integration with Microsoft's official API
@@ -96,16 +96,31 @@ TENANT_ID=00000000-0000-0000-0000-000000000000
 
 ### Token Storage
 
-The server stores authentication tokens in `tokens.json` with automatic refresh 5 minutes before expiration. You can override the token file location:
+The server stores authentication tokens with automatic refresh 5 minutes before expiration. The default location is platform-aware:
+
+- **Windows**: `%APPDATA%\microsoft-todo-mcp\tokens.json`
+- **macOS/Linux**: `~/.config/microsoft-todo-mcp/tokens.json`
+
+You can override the location or provide tokens directly via environment variables:
 
 ```bash
-# Using environment variable
+# Override the token file location (used by the CLI as a fallback source)
 export MSTODO_TOKEN_FILE=/path/to/custom/tokens.json
 
-# Or pass tokens directly
+# Provide tokens directly (used as the initial source on startup)
 export MS_TODO_ACCESS_TOKEN=your_access_token
 export MS_TODO_REFRESH_TOKEN=your_refresh_token
 ```
+
+### Auth Server Port
+
+The OAuth callback server (`pnpm run auth`) listens on port 3000 by default. Override with `AUTH_PORT` if 3000 is taken:
+
+```bash
+AUTH_PORT=3001 pnpm run auth
+```
+
+If you change the port, update the **Redirect URI** in your Azure App Registration to match (e.g. `http://localhost:3001/callback`).
 
 ## Usage
 
@@ -259,8 +274,9 @@ The server provides 13 tools for comprehensive Microsoft To Do management:
 **Token acquisition failures**
 
 - Verify `CLIENT_ID`, `CLIENT_SECRET`, and `TENANT_ID` in your `.env` file
-- Ensure redirect URI matches exactly: `http://localhost:3000/callback`
+- Ensure redirect URI matches exactly: `http://localhost:3000/callback` (or `http://localhost:<AUTH_PORT>/callback` if you customized the port)
 - Check Azure App permissions are granted with admin consent
+- If port 3000 is in use, set `AUTH_PORT=<other port>` and update the Redirect URI in Azure to match
 
 **Permission issues**
 
