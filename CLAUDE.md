@@ -16,9 +16,8 @@ pnpm run typecheck   # Run TypeScript type checks
 ### Authentication and Setup
 
 ```bash
-pnpm run auth            # Start OAuth authentication server (port 3000, override with AUTH_PORT)
-pnpm run create-config   # Generate mcp.json from tokens.json
-pnpm run create-manifest # Generate manifest.json for .mcpb desktop extension packaging
+pnpm run auth          # Start OAuth authentication server (port 3000, override with AUTH_PORT)
+pnpm run create-config # Generate mcp.json from tokens.json
 ```
 
 ### Running the Server
@@ -30,14 +29,13 @@ pnpm start           # Run MCP server directly
 
 ## Architecture Overview
 
-This is a Model Context Protocol (MCP) server that enables AI assistants to interact with Microsoft To Do via the Microsoft Graph API. The codebase follows a modular architecture with four main components:
+This is a Model Context Protocol (MCP) server that enables AI assistants to interact with Microsoft To Do via the Microsoft Graph API. The codebase follows a modular architecture:
 
 1. **MCP Server** (`src/todo-index.ts`): Core server implementing the MCP protocol with 16 tools for Microsoft To Do operations
 2. **CLI Wrapper** (`src/cli.ts`): Executable entry point that handles token loading from environment or file
 3. **Auth Server** (`src/auth-server.ts`): Express server implementing OAuth 2.0 flow with MSAL (port 3000, configurable via `AUTH_PORT`)
 4. **Token Manager** (`src/token-manager.ts`): Cross-platform token storage and refresh (`%APPDATA%\microsoft-todo-mcp\tokens.json` on Windows, `~/.config/microsoft-todo-mcp/tokens.json` on macOS/Linux)
-5. **MCP Config Generator** (`src/create-mcp-config.ts`): Generates `mcp.json` for Claude/Cursor from `tokens.json`
-6. **Manifest Generator** (`src/create-manifest.ts`): Generates `manifest.json` for `.mcpb` desktop extension packaging
+5. **Config Generator** (`src/create-mcp-config.ts`): Generates `mcp.json` (pointing at this fork's local build) from `tokens.json`
 
 ### Key Architectural Patterns
 
@@ -57,7 +55,7 @@ The server communicates with Microsoft Graph API v1.0:
 ### Environment Configuration
 
 - `MSTODO_TOKEN_FILE`: Custom path for tokens.json fallback source (the token manager's primary location is platform-specific — see Token Manager component above)
-- `MS_TODO_ACCESS_TOKEN` / `MS_TODO_REFRESH_TOKEN`: Direct token injection (used by the `.mcpb` `user_config` flow)
+- `MS_TODO_ACCESS_TOKEN` / `MS_TODO_REFRESH_TOKEN`: Direct token injection (used when configuring via `mcpServers` env block in `claude_desktop_config.json`)
 - `AUTH_PORT`: Override the OAuth callback port (defaults to 3000). If changed, update the Redirect URI in Azure to match.
 - `.env` file required for authentication with CLIENT_ID, CLIENT_SECRET, TENANT_ID, REDIRECT_URI
 
@@ -67,4 +65,6 @@ The server communicates with Microsoft Graph API v1.0:
 - The auth server runs on port 3000 by default (override with `AUTH_PORT`)
 - Tokens are automatically refreshed using the refresh token when needed; refreshed tokens persist to the platform-specific Token Manager location
 - Personal Microsoft accounts have limited API access compared to work/school accounts (MailboxNotEnabledForRESTAPI)
-- For modern Claude Desktop versions, package as a `.mcpb` desktop extension instead of relying on `claude_desktop_config.json` `mcpServers`. See README "Building a Desktop Extension (.mcpb)" for the full flow.
+- For Claude Desktop, configure via **Settings → Developer → Edit Config** (which opens the canonical `claude_desktop_config.json` location); add an entry under `mcpServers` pointing at `node` + the absolute path to `dist/cli.js`
+- The canonical config path differs by install type. Microsoft Store / MSIX-packaged Claude Desktop redirects `%APPDATA%\Claude\` to its AppContainer sandbox (typically `C:\Users\<user>\AppData\Local\Packages\Claude_<hash>\LocalCache\Roaming\Claude\claude_desktop_config.json`), while the classic Win32 installer uses `%APPDATA%\Claude\claude_desktop_config.json` directly. Always rely on Settings → Developer → Edit Config to open the correct file rather than guessing the path.
+- Claude Desktop **strips unrecognized keys** from `claude_desktop_config.json` on rewrite unless Developer mode is enabled. If your `mcpServers` entries vanish on next launch, confirm Developer mode is toggled on under Settings → Developer.

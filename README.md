@@ -32,16 +32,13 @@ pnpm install
 pnpm run build
 ```
 
-The build produces four executables under `dist/`:
+The build produces three executables under `dist/`:
 
 - `dist/cli.js` — MCP server (run with `node dist/cli.js` or `pnpm run cli`)
 - `dist/auth-server.js` — OAuth flow (run with `pnpm run auth`)
 - `dist/create-mcp-config.js` — `mcp.json` generator (run with `pnpm run create-config`)
-- `dist/create-manifest.js` — `manifest.json` generator for `.mcpb` packaging (run with `pnpm run create-manifest`)
 
 > Installing globally via `npm install -g microsoft-todo-mcp-server` would fetch the upstream npm package, not this fork. Don't do that.
-
-Newer Claude Desktop versions manage local MCP servers through the [`.mcpb` extension format](https://github.com/modelcontextprotocol/mcpb) (Settings → Extensions) rather than the legacy `claude_desktop_config.json` `mcpServers` block. If your Claude Desktop ignores `mcpServers` entries you add to that file, package this server as a `.mcpb` extension instead — see [Building a Desktop Extension (.mcpb)](#building-a-desktop-extension-mcpb) below.
 
 ## Azure App Registration
 
@@ -192,9 +189,8 @@ pnpm start            # Run MCP server directly
 pnpm run cli          # Run MCP server via CLI wrapper
 
 # Authentication & Configuration
-pnpm run auth            # Start OAuth authentication server
-pnpm run create-config   # Generate mcp.json from tokens.json
-pnpm run create-manifest # Generate manifest.json for .mcpb packaging
+pnpm run auth         # Start OAuth authentication server
+pnpm run create-config # Generate mcp.json from tokens.json
 
 # Code Quality
 pnpm run format       # Format code with Prettier
@@ -203,98 +199,9 @@ pnpm run lint         # Run linting checks
 pnpm run typecheck    # TypeScript type checking
 ```
 
-## Building a Desktop Extension (.mcpb)
-
-Modern Claude Desktop versions install local MCP servers as **Desktop Extensions** (`.mcpb` files) via Settings → Extensions, rather than honoring `mcpServers` entries in `claude_desktop_config.json`. If your Claude Desktop falls in that bucket, package this server as a `.mcpb` extension using the official [Anthropic MCPB tooling](https://github.com/modelcontextprotocol/mcpb).
-
-### Prerequisites
-
-Install the packaging CLI globally (one time):
-
-```bash
-npm install -g @anthropic-ai/mcpb
-```
-
-### Step 1: Generate the manifest
-
-`manifest.json` describes the extension and the values Claude Desktop should prompt for at install time. Generate one from `package.json`:
-
-```bash
-pnpm run build           # Refresh dist/
-pnpm run create-manifest # Writes manifest.json to project root
-```
-
-The generated manifest declares five `user_config` fields the user fills in via the install dialog:
-
-| Field | Description | Sensitive |
-|---|---|---|
-| `client_id` | Azure App Registration Application (client) ID | No |
-| `client_secret` | Azure App Registration secret value | Yes |
-| `tenant_id` | Tenant GUID, or `organizations` / `common` / `consumers` | No |
-| `access_token` | Initial access token from `tokens.json` | Yes |
-| `refresh_token` | Initial refresh token from `tokens.json` | Yes |
-
-Sensitive fields are masked in the install dialog and stored encrypted by Claude Desktop. If you place an `icon.png` (recommended: 128×128 PNG) at the project root before running `create-manifest`, it will be referenced automatically.
-
-### Step 2: Stage a production-only bundle
-
-Because `tsup` does not bundle dependencies into `dist/cli.js`, the `.mcpb` archive must include `node_modules`. To avoid shipping ~200 MB of devDependencies, stage a clean directory with production deps only.
-
-**Windows (cmd):**
-
-```bash
-mkdir bundle
-xcopy /E /I dist bundle\dist
-copy package.json bundle\
-copy manifest.json bundle\
-cd bundle && npm install --omit=dev --no-package-lock && cd ..
-```
-
-**macOS/Linux:**
-
-```bash
-mkdir -p bundle
-cp -r dist bundle/dist
-cp package.json manifest.json bundle/
-(cd bundle && npm install --omit=dev --no-package-lock)
-```
-
-### Step 3: Pack
-
-```bash
-mcpb pack bundle microsoft-todo-1.1.3.mcpb
-```
-
-This produces `microsoft-todo-1.1.3.mcpb` (a zip archive with `manifest.json`, `dist/`, `node_modules/`, and `package.json`) at the project root.
-
-### Step 4: Install in Claude Desktop
-
-1. Double-click the `.mcpb` file. Claude Desktop opens an install dialog with the extension name, description, and a form for the five `user_config` fields.
-2. Fill in your Azure App Registration credentials and the access/refresh tokens from your `tokens.json` (run `pnpm run auth` first if you don't have one).
-3. Click **Install**. The extension appears under **Settings → Extensions** and the MCP server starts automatically.
-
-### Token refresh and reauthentication
-
-The server reads the initial tokens from environment variables (set by Claude Desktop from your `user_config` values), then writes refreshed tokens to the platform-specific location described under [Token Storage](#token-storage). If the access token expires and the refresh token can no longer renew it (typically after extended inactivity, password change, or MFA event), the server logs a `REAUTHENTICATION REQUIRED` message. To recover:
-
-1. Run `pnpm run auth` in a clone of this repo to generate a fresh `tokens.json`.
-2. Open Claude Desktop → **Settings → Extensions → Microsoft To Do → Configure**.
-3. Update the **Initial Access Token** and **Initial Refresh Token** fields with the new values.
-
-### Build artifacts
-
-The bundling flow produces files that should not be committed. The project `.gitignore` already excludes them:
-
-```gitignore
-bundle/
-*.mcpb
-mcp.json
-tokens.json
-```
-
 ## MCP Tools
 
-The server provides 16 tools for comprehensive Microsoft To Do management:
+The server provides 13 tools for comprehensive Microsoft To Do management:
 
 ### Authentication
 
@@ -336,8 +243,7 @@ The server provides 16 tools for comprehensive Microsoft To Do management:
 - **MCP Server** (`src/todo-index.ts`) - Core server implementing the MCP protocol
 - **CLI Wrapper** (`src/cli.ts`) - Executable entry point with token management
 - **Auth Server** (`src/auth-server.ts`) - Express server for OAuth 2.0 flow
-- **Config Generator** (`src/create-mcp-config.ts`) - Helper to create `mcp.json` for the legacy `mcpServers` config block
-- **Manifest Generator** (`src/create-manifest.ts`) - Helper to create `manifest.json` for `.mcpb` extension packaging
+- **Config Generator** (`src/create-mcp-config.ts`) - Helper to create `mcp.json` for the `mcpServers` config block
 
 ### Technical Details
 
@@ -362,6 +268,24 @@ The server provides 16 tools for comprehensive Microsoft To Do management:
 - Shared lists have limited functionality
 
 ## Troubleshooting
+
+### Claude Desktop Configuration
+
+**Finding the right `claude_desktop_config.json`**
+
+The path differs by install type. Always use **Settings → Developer → Edit Config** in Claude Desktop, which opens the correct file in Windows Explorer regardless of how Claude Desktop was installed:
+
+- **Microsoft Store / MSIX install**: redirected to an AppContainer sandbox under `C:\Users\<user>\AppData\Local\Packages\Claude_<hash>\LocalCache\Roaming\Claude\claude_desktop_config.json`. Editing `%APPDATA%\Claude\claude_desktop_config.json` directly may appear to work but writes can be invisible to the sandboxed Claude Desktop process.
+- **Classic Win32 installer**: `%APPDATA%\Claude\claude_desktop_config.json` (i.e. `C:\Users\<user>\AppData\Roaming\Claude\claude_desktop_config.json`).
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`.
+
+**`mcpServers` entries disappearing after restart**
+
+Claude Desktop strips unrecognized keys from `claude_desktop_config.json` on rewrite unless **Developer mode** is enabled. If your `microsoftTodo` entry vanishes between launches:
+
+1. Open Claude Desktop → **Settings → Developer**
+2. Confirm Developer mode is toggled on (this is what surfaces the **Edit Config** button in the first place — if you can see it, you're set)
+3. Re-add the `mcpServers` block and restart Claude Desktop fully (system tray → Quit, not just close window)
 
 ### Authentication Issues
 
