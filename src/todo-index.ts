@@ -54,13 +54,15 @@ async function makeGraphRequest<T>(url: string, token: string, method = "GET", b
 
     let response = await fetch(url, options)
 
-    // If we get a 401, try to refresh the token and retry once
+    // If we get a 401, force a refresh and retry once. We can't rely on
+    // getAccessToken() here — the manager may still believe the current
+    // token is valid (e.g. injected via env with no real expiresAt), so we
+    // have to force a refresh against Microsoft.
     if (response.status === 401) {
-      console.error("Got 401, attempting token refresh...")
-      const newToken = await getAccessToken() // This will trigger refresh
-      if (newToken && newToken !== token) {
-        // Retry with new token
-        headers.Authorization = `Bearer ${newToken}`
+      console.error("Got 401, forcing token refresh...")
+      const refreshed = await tokenManager.forceRefresh()
+      if (refreshed && refreshed.accessToken !== token) {
+        headers.Authorization = `Bearer ${refreshed.accessToken}`
         response = await fetch(url, { ...options, headers })
       }
     }
